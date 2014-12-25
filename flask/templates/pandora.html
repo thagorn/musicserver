@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Pandora{% endblock %}
+{% block bodyClass %}pandora{% endblock %}
+{% block content %}
+  <div id="stationButton" onClick="toggleStations()">
+    <span class="text">Select a station (<span id="selectedStation"></span>)</span>
+    <div id="stations" class="hidden"></div>
+  </div>
+  <div class="controlBar">
+    <input id="timerSlider" type="range" min="0" max="60" value="0">
+    <div class="spacing"></div>
+    <div onclick="sendMessage('-')" class="button">
+      <img id="down_gold" class="svg" src="/static/svg/thumbs_down_gold.svg">
+      <img id="down" class="svg" src="/static/svg/thumbs_down.svg">
+    </div>
+    <div class="spacing"></div>
+    <div onclick="sendMessage('p')" class="button">
+      {% if paused %}
+        <img id="play" class="svg" src="/static/svg/play.svg">
+        <img id="pause" class="svg hidden" src="/static/svg/pause.svg">
+      {% else %}
+        <img id="play" class="svg hidden" src="/static/svg/play.svg">
+        <img id="pause" class="svg" src="/static/svg/pause.svg">
+      {% endif %}
+    </div>
+    <div class="spacing"></div>
+    <div onclick="sendMessage('n')" class="button">
+      <img class="svg" src="/static/svg/next.svg">
+    </div>
+    <div class="spacing"></div>
+    <div onclick="$('#up').hide(); sendMessage('+')" class="button">
+      <img id="up_gold" class="svg" src="/static/svg/thumbs_up_gold.svg">
+      <img id="up" class="svg" src="/static/svg/thumbs_up.svg">
+    </div>
+    <div class="spacing"></div>
+  </div>
+  <input id="volumeSlider" onchange="volumeChanged(event)" type="range" min="-20" max="20" value="{{ volume }}">
+  <div>
+    <img id="coverArt" src="" />
+    <div class="songInfo" >
+      <div id="songName"></div>
+      <div id="artist"></div>
+      <div id="albumName"></div>
+    </div>
+  </div>
+{% endblock %}
+{% block js %}
+  <script type="text/javascript" src="/static/js/socket.io.min.js"></script>
+  <script type="text/javascript" src="/static/js/jquery-2.1.1.min.js"></script>
+  <script type="text/javascript" src="/static/js/sliding_timer.js"></script>
+  <script src="/static/js/pandora.js"></script>
+  <script type="text/javascript" charset="utf-8">
+    $(document).ready(function() {
+      socket = io.connect('http://' + document.domain + ':' + location.port + "/pandorasocket");
+      initHandlers();
+      setSongInfo({{ data|tojson|safe }}, "{{ paused }}", {{ time }});
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,76 @@
+body { margin:0; background-color:#006f6f; position:fixed; height:100%; width:100%}
+img.svg { height:100%; position:absolute; left:0; right:0; top:0; bottom:0; margin:auto; }
+.hidden {display:none;}
+/* ***************** Home ******************************* */
+.pages { list-style:none; margin:0; padding:0; }
+.page { background-color:#4444cc; height:40px; border:solid #fff 1px; line-height:40px; padding-left: 20px; border-radius:20px; }
+/* **************** Pandora **************************** */
+/* //////////////// */
+/* Song controls */
+/* //////////////// */
+.controlBar {position:relative; height:80px; display:flex; flex-direction:row; z-index:2;}
+.controlBar .button {position: relative; flex:1;}
+.controlBar .spacing {width:20px;}
+.controlBar .svg { height:50%; }
+#timerSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    border: none;
+    height: 80px;
+    width: 1px;
+}
+#timerSlider {
+    background-color:#006f6f;
+    position:absolute;
+}
+/* //////////////// */
+/*  Choose station */
+/* //////////////// */
+#stationButton { background-color:#00bcbc; height:45px; text-align:center;}
+#stationButton span { height:45px; line-height:45px; }
+#stations { position:absolute; z-index: 5; height:100%; width:100%; text-align:left;}
+#stations ul { display:inline-block; margin:0; background-color:#00bc5e; list-style:none; padding:0; max-height:200px; overflow-y:scroll; border:2px solid #99d9a5; border-top:0;}
+#stations li { height:45px; border:1px solid #99d9a5; text-align:center; line-height:45px; padding: 0 20px; border-top:0; overflow-x:hidden; text-overflow:ellipsis; white-space:nowrap;}
+/* //////////////// */
+/*  Volume controls */
+/* //////////////// */
+input[type=range] {
+    -webkit-appearance: none;
+    margin:0;
+    width:100%;
+    position:relative;
+}
+#volumeSlider:after {
+    position:absolute;
+    content: url(/static/svg/volume-up-small.svg);
+    top:3px;
+    right:0;
+}
+#volumeSlider:before {
+    position:absolute;
+    content: url(/static/svg/volume-down-small.svg);
+    top:3px;
+    left:0;
+}
+#volumeSlider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 50px;
+    border: none;
+    background: #bc0000;
+}
+#volumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    border: none;
+    height: 50px;
+    width: 20px;
+    background: #333;
+}
+input[range]:focus {
+    outline: none;
+}
+/* //////////////// */
+/*  Song info       */
+/* //////////////// */
+#coverArt { float:left; width:100px; margin: 5px; margin-top:0; }
+.songInfo { margin:5px; font-size:20px; }
+.songInfo span { font-weight:bold; }
+
