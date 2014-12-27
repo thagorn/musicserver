@@ -39,19 +39,30 @@ function setSongInfo(/* json */ data, /*bool*/ paused, /*int*/ time) {
     $("#artist").html("<span>by: </span>" + data["artist"]);
     $("#albumName").html("<span>on: </span>" + data["album"]);
     //Set stations
+    setStations(data);
+}
+function setStations(/* json */data) {
     var selector = $("#stations");
+    var needSelect = true;
     selector.html("");
     var stationList = $("<ul>");
     var curStation = data["stationName"];
+    if(curStation == "\n") {
+      needSelect = false
+    }
     selector.append(stationList);
     var numStations = parseInt(data["stationCount"]);
     for(var i = 0; i<numStations; i++) {
         var station = "station" + i;
         var selected = "";
-        if(data[station] == data["stationName"]) {
+        if(data[station] == curStation) {
             selected = "selected='true'"
         }
-        stationList.append("<li onclick='sendMessage(\"s"+i+"\\n\");'>" + data[station] + "</li>");
+        if(needSelect) {
+            stationList.append("<li onclick='sendMessage(\"s"+i+"\\n\");'>" + data[station] + "</li>");
+        } else {
+            stationList.append("<li onclick='sendMessage(\""+i+"\\n\");'>" + data[station] + "</li>");
+        }
     }
     $("#selectedStation").html(curStation.substring(0,curStation.length-1));
 }
@@ -72,11 +83,15 @@ function onVolumeChange(data) {
         $("#volumeSlider").val(parseInt(data["volume"]));
     }
 }
+function onUserGetStations(data) {
+    setStations(data);
+}
 function initHandlers() {
     socket.on('songstart', setSongInfo);
     socket.on('songlove', function() { $("#up").hide(); });
     socket.on('onpause', onPause);
     socket.on('volumechanged', onVolumeChange);
+    socket.on('usergetstations', onUserGetStations);
 }
 var musicTimer = new (function() {
     var slider,
