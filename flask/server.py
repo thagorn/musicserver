@@ -3,6 +3,7 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 from pianobarController import PianobarController
+from podcastController import PodcastController
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -51,6 +52,7 @@ def pandora_message(message):
 @app.route("/pianobar/<action>", methods=["POST"])
 def pianobar_message(action):
     data = request.json
+    logging.debug("pianobar_message - action: {0} data: {1}".format(action, data))
     PCONTROLLER.set_latest(action, data)
     broadcast_pandora(action, data)
     return "OK"
@@ -58,6 +60,28 @@ def pianobar_message(action):
 def broadcast_pandora(action, data):
     socketio.emit(action, data, namespace="/pandorasocket")
 
+PODCAST = None
+
+def getPodcast():
+    global PODCAST
+    if not PODCAST:
+        PODCAST = PodcastController()
+    return PODCAST
+    
+@app.route("/podcast/")
+def podcast():
+    return render_template("podcast.html",
+        feeds=getPodcast().get_feeds())
+
+@app.route("/podcast/feed/<path:url>")
+def podcast_feed(url):
+    return render_template("podcast_feed.html",
+        podcasts=getPodcast().get_feed(url))
+
+@app.route("/podcast/play/<path:url>")
+def podcast_play(url):
+    return render_template("podcast_play.html",
+        podcast=getPodcast().play_podcast(url,request.args.get('duration'), request.args.get('title')))
 
 if __name__ == '__main__':
     socketio.run(app, port=PORT, host=HOST)
