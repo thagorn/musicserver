@@ -22,9 +22,9 @@ var podcastController = new ( function() {
       // no-op for now
     },
     this.playOrPause = function() {
-      sendMessage('ct:pause');
+      sendMessage('ct|pause');
     },
     this.next = function() {
-      sendMessage('ct:next');
+      sendMessage('ct|next');
     };
 });

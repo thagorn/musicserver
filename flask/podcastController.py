@@ -1,21 +1,33 @@
 from string import split
 from urllib2 import urlopen
 from mediaplayerController import get_mediaplayer
+from baseController import BaseController
 import xml.etree.ElementTree as ET
 import time
+import psycopg2
+import logging
 
-class PodcastController():
+class PodcastController(BaseController):
     def __init__(self):
-        self.dir = '/home/pi/podcast/data/'
-        self.feeds = self.dir + 'feeds.txt'
+        BaseController.__init__(self)
         self.paused = True
         self.elapsedTime = 0
         self.startTime = time.time()
 
     def get_feeds(self):
-        with open(self.feeds) as input:
-           feedData = input.readlines()
-        return map(lambda x: split(x,'|'), feedData)
+        feeds = []
+        conn = None
+        try:
+            conn = psycopg2.connect('dbname=pi user=pi')
+            with conn.cursor() as cursor:
+                cursor.execute('select label, url, id from podcast_feeds order by rank asc')
+                feedData = cursor.fetchone()
+                while feedData:
+                    feeds.append(feedData)
+                    feedData = cursor.fetchone()
+        finally:
+            conn.close()
+        return feeds
 
     def get_feed(self, url):
         try:
@@ -49,22 +61,31 @@ class PodcastController():
                  'durationSecs': durationSecs,
                  'title': title }
 
+    def swap(self, id1str, id2str):
+        id1 = int(id1str)
+        id2 = int(id2str)
+        logging.info("swapping " + id1str + " and " + id2str)
+        ranks = {}
+        conn = None
+        try:
+            conn = psycopg2.connect('dbname=pi user=pi')
+            with conn.cursor() as cursor:
+                cursor.execute('select id, rank from podcast_feeds where id in (%s,%s)', [id1, id2]);
+                feedData = cursor.fetchone()
+                ranks[feedData[0]] = feedData[1]
+                feedData = cursor.fetchone()
+                ranks[feedData[0]] = feedData[1]
+                cursor.execute('update podcast_feeds set rank = %(rank)s where id = %(id)s', { 'id': id1, 'rank': ranks[id2] })
+                cursor.execute('update podcast_feeds set rank = %(rank)s where id = %(id)s', { 'id': id2, 'rank': ranks[id1] })
+                conn.commit()
+        finally:
+             conn.close()
+
+
+    # override
     def pause(self):
         self.write('pause')
-        self.paused = not self.paused
-        if self.paused:
-            self.elapsedTime = self.elapsedTime + time.time() - self.startTime
-        else:
-            self.startTime = time.time()
-
-    def is_paused(self):
-        return self.paused
-
-    def get_time(self):
-        if self.paused:
-            return self.elapsedTime
-        else:
-            return self.elapsedTime + time.time() - self.startTime
+	BaseController.pause(self)
 
     # write straight to mplayer fifo
     def write(self, message):
