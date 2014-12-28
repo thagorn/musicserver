@@ -4,7 +4,7 @@
 {% block content %}
 <ul>
 {% for item in podcasts['items'] %}
-  <li><a href="/podcast/play/{{ item.guid|urlencode }}?duration={{ item.duration }}&title={{ item.title|urlencode }}">{{ item.title }}</a></li>
+  <li><a href="/podcast/play/{{ item.guid|urlencode }}?duration={{ item.duration }}&durationSecs={{ item.durationSecs }}&title={{ item.title|urlencode }}">{{ item.title }}</a></li>
 {% endfor %}
 </ul>
 {% endblock %}
