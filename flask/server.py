@@ -81,7 +81,28 @@ def podcast_feed(url):
 @app.route("/podcast/play/<path:url>")
 def podcast_play(url):
     return render_template("podcast_play.html",
-        podcast=getPodcast().play_podcast(url,request.args.get('duration'), request.args.get('title')))
+        podcast=getPodcast().play_podcast(url,request.args.get('duration'), request.args.get('durationSecs'), request.args.get('title')),
+        paused=False,
+        time=getPodcast().get_time())
+
+def broadcast_podcast(action, data):
+    socketio.emit(action, data, namespace="/podcastsocket")
+
+@socketio.on("message", namespace="/podcastsocket")
+def podcast_message(message):
+    data = message["data"].split(':')
+    if data[0] == 'mp':
+       getPodcast().write(data[1])
+    if data[0] == 'ct':
+       if data[1] == 'next':
+         getPodcast().playNext()
+       elif data[1] == 'pause':
+         getPodcast().pause()
+         broadcast_podcast("onpause", {"paused":getPodcast().is_paused()})
+       else:
+         logging.warn('Unknown podcastsocket message: ' + data)
+    return "OK"
+
 
 if __name__ == '__main__':
     socketio.run(app, port=PORT, host=HOST)

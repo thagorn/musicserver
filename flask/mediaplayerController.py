@@ -27,6 +27,10 @@ class MediaplayerController():
     def play(self, url):
         self._open(url)
 
+    def write(self, message):
+        if self.process:
+            self._message(message)
+
     def close(self):
         if self.process:
             self._message('quit')
