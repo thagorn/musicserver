@@ -4,6 +4,7 @@ from flask import Flask, render_template, request
 from flask.ext.socketio import SocketIO, emit
 from pianobarController import PianobarController
 from podcastController import PodcastController
+from radioController import RadioController
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -90,19 +91,55 @@ def broadcast_podcast(action, data):
 
 @socketio.on("message", namespace="/podcastsocket")
 def podcast_message(message):
-    data = message["data"].split(':')
+    data = message["data"].split('|')
     if data[0] == 'mp':
        getPodcast().write(data[1])
-    if data[0] == 'ct':
+    elif data[0] == 'ct':
        if data[1] == 'next':
          getPodcast().playNext()
        elif data[1] == 'pause':
          getPodcast().pause()
          broadcast_podcast("onpause", {"paused":getPodcast().is_paused()})
+       elif data[1] == 'swap':
+         getPodcast().swap(data[2], data[3])
        else:
-         logging.warn('Unknown podcastsocket message: ' + data)
+         logging.warn('Unknown podcastsocket message: ' + message)
+    else:
+      logging.warn('Unknown podcastsocket message: ' + message)
     return "OK"
 
+
+RADIO = None
+
+def getRadio():
+    global RADIO
+    if not RADIO:
+        RADIO = RadioController()
+    return RADIO
+
+@app.route("/radio/")
+def radio():
+    radio = getRadio()
+    return render_template("radio.html",
+                data=radio.get_latest(),
+                paused=radio.is_paused(),
+                time=radio.get_time(),
+                volume=radio.get_volume())
+
+def broadcast_radio(action, data):
+    socketio.emit(action, data, namespace="/radiosocket")
+
+@socketio.on("message", namespace="/radiosocket")
+def radio_message(message):
+    data = message["data"].split('|')
+    if data[0] == 's':
+       getRadio().play(data[1],data[2])
+    elif data[0] == 'pause':
+       getRadio().pause()
+       broadcast_radio("onpause", {"paused":getRadio().is_paused()})
+    else:
+         logging.warn('Unknown radiosocket message: ' + mesage)
+    return "OK"
 
 if __name__ == '__main__':
     socketio.run(app, port=PORT, host=HOST)
