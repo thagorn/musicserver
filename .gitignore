@@ -1,2 +1,4 @@
 *.swp
 *.pyc
+flask/static/favicon
+flask/logs
