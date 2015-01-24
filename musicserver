@@ -1,4 +1,0 @@
-#!/bin/sh
-cd flask
-mkdir -p logs
-sudo nohup ./server.py >logs/server.out 2>logs/server.err &
