@@ -18,7 +18,7 @@ class PianobarController(BaseController):
             self.paused = False
             self.elapsedTime = 0
             self.startTime = time.time()
-            subprocess.Popen(['pianobar'])
+            subprocess.Popen(['pianobar'], close_fds=True)
 
     def set_latest(self, action, data):
         if action == "songstart":

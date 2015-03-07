@@ -5,7 +5,10 @@ from flask.ext.socketio import SocketIO, emit
 from pianobarController import PianobarController
 from podcastController import PodcastController
 from radioController import RadioController
+from subprocess import check_output, call
 import logging
+import sys
+import os
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -141,5 +144,32 @@ def radio_message(message):
          logging.warn('Unknown radiosocket message: ' + mesage)
     return "OK"
 
+@app.route("/admin")
+def admin():
+   return render_template("admin.html")
+
+def broadcast_admin(action, data):
+    socketio.emit(action, data, namespace="/adminsocket")
+
+# message: action
+#     restart - restart server
+@socketio.on("message", namespace="/adminsocket")
+def admin_message(message):
+   action=message["data"]
+   logging.debug("/admin, action is " + str(action))
+   if(action == 'restart'):
+     logging.warn("Restarting server")
+     try:
+       with open(os.devnull,'r') as devNull:
+         output="/tmp/restart.out"
+         result=call(['( sleep 1;../scripts/musicserver >' + output + ' 2>&1 ) &'], shell=True, stdin=devNull, close_fds=True)
+     except:
+       result="Exception: " + str(sys.exc_info())
+   logging.debug("admin result" + str(result))
+   broadcast_admin("adminResult", {"result":"restarting server - " + str(result)})
+   return "OK"
+
 if __name__ == '__main__':
-    socketio.run(app, port=PORT, host=HOST)
+    # disable flash policy server
+    socketio.run(app, port=PORT, host=HOST, policy_server=False)
+    broadcast_admin("adminResult", {"result":"server restarted"})

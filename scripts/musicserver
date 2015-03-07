@@ -1,5 +1,6 @@
 #!/bin/bash
-source config
+home=$(dirname $0)
+source $home/config
 cd $MUSIC_BASE/flask
 mkdir -p logs
 cd logs
@@ -11,7 +12,7 @@ cd ..
 cmd="sudo nohup $MUSIC_BASE/flask/server.py"
 # kill old instance, if any
 oldpid=$(pgrep -f "$cmd")
-[[ ! -z $oldpid ]] && $MUSIC_BASE/scripts/killtree.sh $oldpid
+[[ ! -z $oldpid ]] && { $MUSIC_BASE/scripts/killtree.sh $oldpid; sudo lsof -P | grep LISTEN | grep ":80"; }
 $cmd >logs/server.out 2>logs/server.err &
 cd logs
 # cleanup, zip old logs
