@@ -15,6 +15,9 @@ declare -a PIDS
 declare LEN=0
 declare POPPED
 
+declare -a TO_KILL
+declare KILL_LEN=0
+
 function push {
   PIDS[$LEN]="$1"
   ((LEN++))
@@ -43,6 +46,18 @@ function pushChildren {
   done < <(ps ax -opid="",ppid="" | grep $parent)
 }
 
+function pushToKill {
+  echo "saving $1 to kill later"
+  TO_KILL[$KILL_LEN]="$1"
+  ((KILL_LEN++))
+}
+
+function popToKill {
+  ((KILL_LEN--))
+  POPPED=${TO_KILL[$KILL_LEN]}
+  unset TO_KILL[$KILL_LEN]
+}
+
 while [[ $# -gt 0 ]]
 do
   if [[ $1 =~ [0-9]+ ]]
@@ -61,6 +76,14 @@ do
   echo "processing $pid, $(ps u -p $pid)"
   sudo kill -STOP $pid
   pushChildren $POPPED
+  pushToKill $pid
+done
+
+while [[ $KILL_LEN -gt 0 ]]
+do
+  popToKill
+  pid=$POPPED
+  echo "killing $pid, $(ps u -p $pid)"
   sudo kill $pid
   sudo kill -CONT $pid
 done
