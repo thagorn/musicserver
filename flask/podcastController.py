@@ -1,5 +1,5 @@
 from string import split
-from urllib2 import urlopen
+from urllib2 import urlopen,unquote
 from mediaplayerController import get_mediaplayer
 from baseController import BaseController
 import xml.etree.ElementTree as ET
@@ -30,8 +30,12 @@ class PodcastController(BaseController):
         return feeds
 
     def get_feed(self, url):
+        feedData = None
         try:
             namespaces = {'itunes':'http://www.itunes.com/dtds/podcast-1.0.dtd'}
+            logging.info("orig url: " + url)
+            url=unquote(url)
+            logging.info("decoded: " + url)
             feedData = urlopen(url)
             channel = ET.parse(feedData).getroot().find('channel')
             feed = dict()
@@ -41,18 +45,36 @@ class PodcastController(BaseController):
             for item in channel.findall("item"):
                 feedItem = dict()
                 feedItem['title'] = item.find('title').text
-                duration = item.find('itunes:duration',namespaces).text
-                feedItem['duration'] = duration
-                parts = duration.split(':')
-                feedItem['durationSecs'] = int(parts[0]) * 60 + int(parts[1])
-                feedItem['guid'] = item.find('guid').text
+                durationHolder = item.find('itunes:duration',namespaces)
+                duration = None
+                if durationHolder is not None:
+                  duration = durationHolder.text
+                if duration is not None:
+                  print "duration: " + str(duration)
+                  feedItem['duration'] = duration
+                  parts = duration.split(':')
+                  if(len(parts) >= 2):
+                    feedItem['durationSecs'] = int(parts[0]) * 60 + int(parts[1])
+                  elif(len(parts) == 1):
+                    feedItem['durationSecs'] = int(parts[0])
+                  else:
+                    feedItem['durationSecs'] = 99
+                else:
+                  print "could not find duration in: " + str(item)
+                  feedItem['duration'] = 99
+                  feedItem['durationSecs'] = 99
+                #feedItem['guid'] = item.find('guid').text
+                feedItem['guid'] = item.find('enclosure').get('url')
                 feed['items'].append(feedItem)
         finally:
-            feedData.close()
+            if(feedData): feedData.close()
         return feed
 
     def play_podcast(self, url, duration, durationSecs, title):
         mp = get_mediaplayer()
+        logging.info("orig url: " + url)
+        url=unquote(url)
+        logging.info("decoded: " + url)
         mp.play(url)
         self.paused = False
         self.elapsedTime = 0
