@@ -1,8 +1,11 @@
 from string import split
 from urllib2 import urlopen,unquote
+from urllib import urlretrieve
 from mediaplayerController import get_mediaplayer
 from baseController import BaseController
+from tempfile import mkstemp
 import xml.etree.ElementTree as ET
+import os
 import time
 import psycopg2
 import logging
@@ -13,6 +16,7 @@ class PodcastController(BaseController):
         self.paused = True
         self.elapsedTime = 0
         self.startTime = time.time()
+
 
     def get_feeds(self):
         feeds = []
@@ -75,13 +79,27 @@ class PodcastController(BaseController):
         logging.info("orig url: " + url)
         url=unquote(url)
         logging.info("decoded: " + url)
-        mp.play(url)
-        self.paused = False
-        self.elapsedTime = 0
-        self.startTime = time.time()
-        return { 'duration': duration,
-                 'durationSecs': durationSecs,
-                 'title': title }
+        try:
+          (fd,tmpFile) = mkstemp()
+          logging.info("downloading to: " + tmpFile)
+          urlretrieve(url,tmpFile)
+          tmpFileUrl = 'file://' + tmpFile
+          mp.play(tmpFileUrl)
+          self.paused = False
+          self.elapsedTime = 0
+          self.startTime = time.time()
+          return { 'duration': duration,
+                   'durationSecs': durationSecs,
+                   'title': title }
+        finally:
+          if(fd):
+            os.close(fd)
+            # give mediaplayer a chance to open it first
+            for tries in range(300):
+                time.sleep(.1)
+                if(self.processHasOpened(mp.getPid(), tmpFile)):
+                    break
+            os.remove(tmpFile)
 
     def swap(self, id1str, id2str):
         id1 = int(id1str)
@@ -113,5 +131,15 @@ class PodcastController(BaseController):
     def write(self, message):
         get_mediaplayer().write(message)
                 
+    def processHasOpened(self, pid, fname):
+        d = "/proc/%s/fd/" % pid
+        try:
+            for fd in os.listdir(d):
+                f = os.readlink(d+fd)
+                if (f == fname):
+                    return True
+        except OSError:
+            return True
+        return False
            
     

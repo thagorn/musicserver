@@ -44,6 +44,10 @@ class MediaplayerController():
             self.fifo = None
             self.url = None
             self.cmd = None
+
+    def getPid(self):
+        if self.process:
+            return self.process.pid
             
 
 MEDIAPLAYER = None
