@@ -11,7 +11,11 @@ import sys
 import os
 import urllib
 import requests
+import psycopg2
+import psycopg2.extras
 import secrets as SECRETS
+import time
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -147,21 +151,18 @@ def radio_message(message):
          logging.warn('Unknown radiosocket message: ' + mesage)
     return "OK"
 
-NPR_COOKIE_NAME='RMNPR'
 NPR_STATE_NEED_AUTH=0
 NPR_STATE_NEED_TOKEN=1
 NPR_STATE_AUTHORIZED=2
-
-# replace w/flask session support
-SESSION={}
 
 SCHEME_AND_HOST = 'http://rasp-music'
 @app.route("/nprOne")
 def nprOne():
   # see nprOne/flow.txt
-  appCookie = request.cookies.get(NPR_COOKIE_NAME)
-  state=parseAppCookie(appCookie)
+  state=getNprState(request)
+  logging.info("nprOne - state is {}".format(state))
   if(state == NPR_STATE_NEED_AUTH):
+    logging.info("nprOne - redirecting for OAuth")
     # 1. no cookie - set cookie, RM=state:AUTH; (can you do that? seems like yes, modulo browser bugs) and redirect to auth, include state=<csrf-token>
     # https://api.npr.org/authorization/v2/authorize?client_id=%(client_id)s&redirect_uri=http%3A%2F%2Frasp-music%2FnprOne&response_type=code&scope=identity.readonly%20identity.write%20listening.readonly%20listening.write&state=abc123
     params={
@@ -174,6 +175,7 @@ def nprOne():
     location='https://api.npr.org/authorization/v2/authorize?client_id=%(client_id)s&redirect_uri=%(redirect_uri)s&response_type=code&scope=%(scopes)s&state=%(csrfToken)s' % params
     return redirect(location, code=302)
   if(state == NPR_STATE_NEED_TOKEN):
+    logging.info("nprOne - got code, getting token")
     #curl -X POST --header 'Content-Type: application/x-www-form-urlencoded' \
     #  --header 'Accept: application/json' \
     #  -d 'grant_type=authorization_code&client_id=%(client_id)s&client_secret=%(client_secret)s&code=%(code)s&redirect_uri=http%3A%2F%2Frasp-music%2FnprOne' \
@@ -190,14 +192,25 @@ def nprOne():
     # works:
     tokenResp = requests.post('https://api.npr.org/authorization/v2/token', data=params, headers = {'Accept': 'application/json'})
     if(tokenResp.status_code != 200):
+      logging.info("nprOne - token request failed - status is {}, body is {}".format(tokenResp.status_code, tokenResp.text))
       outParams = { 'status': tokenResp.status_code, 'body': tokenResp.text , 'reqHeaders': str(tokenResp.request.headers), 'reqBody': tokenResp.request.body }
       return 'requested token, status = %(status)d, body = %(body)s requestHeaders = %(reqHeaders)s requestBody = %(reqBody)s' % outParams
 
     # store our token
+    logging.info("nprOne - token request succeeded, getting recommendations")
     json = tokenResp.json()
     accessToken = json.get('token_type') + ' ' + json.get('access_token')
-    SESSION['access_token'] = accessToken
+    validSeconds = json.get('expires_in')
+    storeNprToken(accessToken, validSeconds)
 
+    return getNprRecommendations(accessToken)
+
+  if(state == NPR_STATE_AUTHORIZED):
+    logging.info("nprOne - authorized, getting recommendations")
+    (token, expires) = getNprToken()
+    return getNprRecommendations(token)
+
+def getNprRecommendations(accessToken):
     # now get recommendations
     headers = {
       'Authorization': accessToken,
@@ -205,16 +218,80 @@ def nprOne():
       'X-Advertising-ID': SECRETS.advertisingId,
     }
     recoResp = requests.get('https://api.npr.org/listening/v2/recommendations?channel=npr', headers = headers)
-    outParams = { 'status': recoResp.status_code, 'body': recoResp.text , 'reqHeaders': str(recoResp.request.headers), 'reqBody': recoResp.request.body }
-    return 'recommendations: (status = %(status)d)<br/>%(body)s' % outParams
+    fname='/tmp/npr-reco.json'
+    itemList = json.loads(recoResp.text)
+    jsonPretty = json.dumps(itemList,indent=2)
+    with open(fname,'w') as fd:
+      fd.write(jsonPretty)
+    outParams = { 'status': recoResp.status_code,
+                  'note': 'dumped json to {}'.format(fname),
+                  'body': jsonPretty,
+                  'reqHeaders': str(recoResp.request.headers),
+                  'reqBody': recoResp.request.body }
+    #return 'recommendations: (status = %(status)d)<br/>note: %(note)s<br/></br><pre>%(body)s</pre>' % outParams
+    return render_template('nprOne.html', items=itemList['items'])
     
 
-def parseAppCookie(cookie):
-  # TODO implement for reals
-  if(request.args.get('code')):
-    return NPR_STATE_NEED_TOKEN
-  return NPR_STATE_NEED_AUTH
+NPR_STATE_DBNAMESPACE = 'nprOne'
+NPR_STATE_DBKEY='state'
+def getNprState(request):
+    # see if we have a valid token
+    if(haveValidNprToken()):
+      return NPR_STATE_AUTHORIZED
+    if(request.args.get('code')):
+      return NPR_STATE_NEED_TOKEN
+    return NPR_STATE_NEED_AUTH
 
+# nprState schema
+# { "token": { "value": "<value>",
+#               "expires": <seconds since epoch>, },
+# }
+
+def haveValidNprToken():
+    (token, expires) = getNprToken()
+    if(not token):
+        return False
+    if(not expires or expires < time.time()):
+        return False
+    return True
+
+def getNprToken():
+    tokenValue = False
+    expires = False
+    conn = psycopg2.connect('dbname=pi user=pi')
+    psycopg2.extras.register_json(conn)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('select value from app_state where namespace = %(namespace)s and key = %(key)s',
+                           {'namespace': NPR_STATE_DBNAMESPACE, 'key':NPR_STATE_DBKEY})
+            nprState = cursor.fetchone()
+            if(not nprState):
+                return (False, False)
+            token = nprState[0]['token']
+            tokenValue = token['value']
+            expires = token['expires']
+    finally:
+        conn.close()
+    return (tokenValue, expires)
+
+def storeNprToken(value, validSeconds):
+    conn = psycopg2.connect('dbname=pi user=pi')
+    psycopg2.extras.register_json(conn)
+    state = { 'token':
+              { 'value': value, 'expires': time.time() + validSeconds },
+            }
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('delete from app_state where namespace = %(namespace)s and key = %(key)s',
+                           {'namespace': NPR_STATE_DBNAMESPACE, 'key':NPR_STATE_DBKEY})
+            valueJson = psycopg2.extras.Json(state)
+            logging.debug("valueJson: " + valueJson.getquoted())
+            cursor.execute('insert into app_state (namespace, key, value) values(%(namespace)s, %(key)s, %(value)s)',
+                           {'namespace': NPR_STATE_DBNAMESPACE, 'key':NPR_STATE_DBKEY, 'value': valueJson})
+            conn.commit()
+    finally:
+        conn.close()
+    
 def generateCsrf(request, key):
   # TODO implement for reals
   return 'abc123'

@@ -27,6 +27,21 @@ Quick flask based music server for use on a rasberry pi
 # Allow python to bind to port 80 (if non-root user)
     readlink -f `which python`
     sudo setcap 'cap_net_bind_service=+ep' /path/to/python
+# install json_91 (back port of json support) from source
+    # need pg dev package to build extensions
+    sudo apg-get install postgresql-server-dev-9.1
+    # get the extension source, then build it
+    git clone https://bitbucket.org/adunstan/json_91.git
+    cd json_91
+    make
+    sudo make install
+    # get around os/pg permissions issues
+    touch regression.out regression.diffs
+    chmod 777 regression.out regression.diffs results
+    sudo -u postgres make installcheck
+  
+    # add it to our db
+    sudo -u postgres psql -U postgres -d pi -c 'create extension json;'
 # Setup db schema
     cd db
     psql -f ./init.sql
@@ -34,3 +49,4 @@ Quick flask based music server for use on a rasberry pi
     cd flask
     chmod a+x server.py
     ./server.py
+

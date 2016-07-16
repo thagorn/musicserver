@@ -43,3 +43,14 @@ create table radio_stations (
   primary key(id),
   unique(rank)
 );
+
+-- added for npr one, but general place to persist stuff
+create table app_state (
+  namespace varchar(128) not null,
+  key varchar(128) not null,
+  value json not null,
+
+  primary key(namespace, key)
+);
+
+  
