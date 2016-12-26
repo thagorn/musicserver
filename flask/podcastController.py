@@ -9,6 +9,7 @@ import os
 import time
 import psycopg2
 import logging
+import subprocess
 
 class PodcastController(BaseController):
     def __init__(self):
@@ -82,7 +83,11 @@ class PodcastController(BaseController):
         try:
           (fd,tmpFile) = mkstemp()
           logging.info("downloading to: " + tmpFile)
-          urlretrieve(url,tmpFile)
+          #urlretrieve(url,tmpFile)
+          #subprocess.check_call(["curl","-L","-s",url],stdout=fd)
+          curlCmd="curl -L -s '" + url + "' >" + tmpFile
+          logging.info("via: " + curlCmd)
+          subprocess.check_call(["bash", "-c", curlCmd])
           tmpFileUrl = 'file://' + tmpFile
           mp.play(tmpFileUrl)
           self.paused = False
@@ -95,11 +100,11 @@ class PodcastController(BaseController):
           if(fd):
             os.close(fd)
             # give mediaplayer a chance to open it first
-            for tries in range(300):
-                time.sleep(.1)
-                if(self.processHasOpened(mp.getPid(), tmpFile)):
-                    break
-            os.remove(tmpFile)
+#            for tries in range(300):
+#                time.sleep(.1)
+#                if(self.processHasOpened(mp.getPid(), tmpFile)):
+#                    break
+#            os.remove(tmpFile)
 
     def swap(self, id1str, id2str):
         id1 = int(id1str)

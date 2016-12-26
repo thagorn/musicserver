@@ -6,16 +6,20 @@
 <div id="recoContainer">
 <div class="title">Recommendations</div>
 <ul id="recommendations">
-{% for item in items %}
+{% for reco in recommendations %}
   <li>
-  {{item['attributes']['title']}}
+  {% if 'imgUrl' in reco %}
+  <img class="icon" src="{{reco['imgUrl']}}"/>
+  {% endif %}
+  {{reco['title']}}
+  {{reco['audioUrl']}}
   </li>
 {#
   <li onClick="window.location='/podcast/feed/{{feed[1]|urlencode}}'" data-url="{{feed[2]}}">
   <div class="feed">
-    <img class="up" src="/static/svg/pitr_green_arrows_set_1.svg" onclick="moveUp(event)">
+    <img class="up" src="/static/svg/pitr_green_arrows_set_1.svg" onclick="moveUp(event)"/>
     {{ feed[0] }}
-    <img class="down" src="/static/svg/pitr_red_arrows_set_5.svg" onclick="moveDown(event)">
+    <img class="down" src="/static/svg/pitr_red_arrows_set_5.svg" onclick="moveDown(event)"/>
   </div>
   </li>
 #}

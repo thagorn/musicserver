@@ -229,8 +229,65 @@ def getNprRecommendations(accessToken):
                   'reqHeaders': str(recoResp.request.headers),
                   'reqBody': recoResp.request.body }
     #return 'recommendations: (status = %(status)d)<br/>note: %(note)s<br/></br><pre>%(body)s</pre>' % outParams
-    return render_template('nprOne.html', items=itemList['items'])
-    
+    # pull out just the data we want:
+    # for item in itemList['items']
+    #  Title - item['attributes']['title']
+    #  preferred url (audio/aac, audio/mp3)
+    #    for audioLink in item['links']['audio']
+    #      audioLink['href'], audioLink['content-type']
+    #  preferred image (icon, logo)
+    #    for imgLink in item['links']['audio']
+    #      imgLink['href'], imgLink['rel']
+    #  traceback info
+    #  - see   http://dev.npr.org/guide/app-experience/core-reqs/sponsorship/
+    #      and http://dev.npr.org/guide/services/listening/#Ratings
+    #    rating object is item['rating']
+    #      POST back to item['links']['recommendations'][0]['href'] with updated 'rating' and 'timestamp'
+    #        START on start & every 5 minutes during playback
+    recommendations=[]
+    for item in itemList['items']:
+        reco={}
+        recommendations.append(reco)
+        pref=100
+        for audioLink in item['links']['audio']:
+            newPref=getNprAudioPref(audioLink)
+            if newPref < pref:
+                pref = newPref
+                audioUrl = audioLink['href']
+        pref=100
+        if 'image' in item['links']:
+            for imgLink in item['links']['image']:
+                newPref=getNprImagePref(imgLink)
+                if newPref < pref:
+                    pref = newPref
+                    imgUrl = imgLink['href']
+            reco['imgUrl']   = imgUrl
+        reco['audioUrl'] = audioUrl
+        reco['title']    = item['attributes']['title']
+    return render_template('nprOne.html', recommendations=recommendations)
+
+# lower is better
+CTYPE_TO_PREF_MAP = {
+    'audio/aac' : 1,
+    'audio/mp3' : 2,
+}
+
+def getNprAudioPref(audioLink):
+    ctype = audioLink['content-type']
+    if(ctype in CTYPE_TO_PREF_MAP): return CTYPE_TO_PREF_MAP[ctype]
+    return 99
+
+# lower is better
+REL_TO_PREF_MAP = {
+    'icon' : 1,
+    'logo' : 2,
+    'logo_square': 3,
+}
+
+def getNprImagePref(imgLink):
+    rel = imgLink['rel']
+    if(rel in REL_TO_PREF_MAP): return REL_TO_PREF_MAP[rel]
+    return 99
 
 NPR_STATE_DBNAMESPACE = 'nprOne'
 NPR_STATE_DBKEY='state'
