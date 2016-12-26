@@ -1,11 +1,12 @@
 import subprocess
+import os
 import time
 
 class PianobarController():
     def __init__(self):
         self.volume = 5
         self.check_status()
-        self.writer = open("/root/.config/pianobar/ctl", "a")
+        self.writer = open(os.environ["HOME"] + "/.config/pianobar/ctl", "a")
         self.latest = ""
         self.paused = False
 
