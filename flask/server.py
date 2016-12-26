@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from flask import Flask, render_template, request
-from flask.ext.socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit
 from pianobarController import PianobarController
 import logging
 
