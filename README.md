@@ -39,11 +39,11 @@ Quick flask based music server for use on a rasberry pi
     chmod 777 regression.out regression.diffs results
     sudo -u postgres make installcheck
   
-    # add it to our db
-    sudo -u postgres psql -U postgres -d pi -c 'create extension json;'
 # Setup db schema
     cd db
-    psql -f ./init.sql
+    ./setup.sh
+    # add json extension
+    sudo -u postgres psql -U postgres -d pi -c 'create extension json;'
 # Start server
     cd flask
     chmod a+x server.py

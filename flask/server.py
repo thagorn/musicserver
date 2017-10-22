@@ -371,7 +371,7 @@ def admin_message(message):
      try:
        with open(os.devnull,'r') as devNull:
          output="/tmp/restart.out"
-         result=call(['( sleep 1;../scripts/musicserver >' + output + ' 2>&1 ) &'], shell=True, stdin=devNull, close_fds=True)
+         result=call(['( sleep 1;sudo service musicserver restart >' + output + ' 2>&1 ) &'], shell=True, stdin=devNull, close_fds=True)
      except:
        result="Exception: " + str(sys.exc_info())
    logging.debug("admin result" + str(result))
