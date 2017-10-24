@@ -6,3 +6,5 @@ $BASE/crontab.sh
 sudo ln -s $BASE/init/musicserver /etc/init.d
 sudo update-rc.d musicserver defaults
 sudo service musicserver start
+sudo mkdir -p /data/musicserver/cache
+sudo chown -R pi:pi /data/musicserver

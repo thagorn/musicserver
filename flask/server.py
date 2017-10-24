@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
+import logging
+# do this first so we get control of root format
+FORMAT = '%(asctime)-15s:%(name)s:%(levelname)s:%(message)s:%(funcName)s:%(module)s:%(lineno)d'
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+
 from flask import Flask, render_template, request, url_for, redirect
 from flask_socketio import SocketIO, emit
 from pianobarController import PianobarController
 from podcastController import PodcastController
 from radioController import RadioController
 from subprocess import check_output, call
-import logging
 import sys
 import os
 import urllib
@@ -16,8 +20,6 @@ import psycopg2.extras
 import secrets as SECRETS
 import time
 import json
-
-logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'super secry'

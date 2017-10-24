@@ -25,3 +25,8 @@
   ** _downloadAndPlay does close enough - why doesn't that work? Is problem that we have to re-start it? Shouldn't be
   ** that big a deal
 - for podcast, would be nice to re-start and go to a specific position rather than only beginning
+* better way to get podcast w/no-delay: just pre-download them!
+  + Create an (hourly say) cronjob
+  - Set max space to use (and/or min free space on that disk)
+  - Prioritize by age and rank
+  + update scheme to track what's available
