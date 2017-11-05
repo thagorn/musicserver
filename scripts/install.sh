@@ -8,3 +8,4 @@ sudo update-rc.d musicserver defaults
 sudo service musicserver start
 sudo mkdir -p /data/musicserver/cache
 sudo chown -R pi:pi /data/musicserver
+echo "Need to setup pianobar config - see configcopy dir & getPandoraTlsFingerprint.sh"

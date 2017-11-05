@@ -17,6 +17,8 @@ Quick flask based music server for use on a rasberry pi
     git clone https://github.com/PromyLOPh/pianobar.git
     cd pianobar
     make clean && make && make install
+## wire pianobar to flask
+    # see configcopy dir & note in scripts/install.sh - why not doc'ed?!
 ## configure alsa
     vim /usr/share/alsa/alsa.conf
     # pcm.front cards.pcm.front => pcm.front cards.pcm.default

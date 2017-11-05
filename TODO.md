@@ -17,6 +17,9 @@
   - status (paused vs playing)
   - position
   - volume
+  - idea - use multiprocessing & queues and/or pipes
+    one process just to track state - accepts both reads & writes
+    a process that reads/parses mplayer output & sends update to state tracker
 - for internet radio, pull ICY stream from mplayer output for what's currently playing
 - another thought on full download of podcast w/out full delay - will mplayer work w/bash process substition?
   # start download w/curl
@@ -29,4 +32,6 @@
   + Create an (hourly say) cronjob
   - Set max space to use (and/or min free space on that disk)
   - Prioritize by age and rank
+  * expire by max age as well
   + update scheme to track what's available
+- also see https://pypi.python.org/pypi/requests-cache

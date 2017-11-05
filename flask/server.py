@@ -62,6 +62,7 @@ def pandora_message(message):
         broadcast_pandora("onpause", {"paused":PCONTROLLER.is_paused()})
     return "OK"
 
+# this is wired to pianbar via /root/.pianobar/config/eventcmd.py
 @app.route("/pianobar/<action>", methods=["POST"])
 def pianobar_message(action):
     data = request.json
