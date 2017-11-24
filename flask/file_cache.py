@@ -5,12 +5,14 @@ import psycopg2
 import requests
 import os
 from datetime import date, datetime
+import subprocess
 
 # keep in sync with cache_status in db/init.sql
 ST_INIT=0
 ST_DOWNLOADING=1
 ST_COMPLETE=2
 ST_ERROR=3
+ST_EXPIRED=4
 
 class FileCache:
   def __init__(self, connParams, cacheRoot):
@@ -19,7 +21,8 @@ class FileCache:
     self._getCacheMeta()
     # defaults
     self.maxAgeInDays = 90
-    self.minFreePercent = 90
+    self.minFreePercent = 50
+    self.maxCachedBytes = 10*1024*1024*1024 # 10GB
     self.maxAttempts = 3
 
   def setMaxAge(self, ageInDays):
@@ -35,11 +38,14 @@ class FileCache:
   def _expireOne(self, meta):
     if(getAgeInDays(meta) > self.maxAgeInDays):
       logging.info('removing expired item: ' + str(meta))
-      path = meta['path']
-      if(os.access(path, os.R_OK)):
-        os.remove(meta['path'])
-      del self.cache[meta['url']]
-      self._executeSql('DELETE FROM file_cache where url = %s',[meta['url']])
+      self._deleteEntry(meta)
+
+  def _deleteEntry(self, meta):
+    path = meta['path']
+    if(os.access(path, os.R_OK)):
+      os.remove(meta['path'])
+    del self.cache[meta['url']]
+    self._executeSql('UPDATE file_cache set state = %s where url = %s',[ST_EXPIRED, meta['url']])
 
   def getUrl(self, url):
     if url in self.cache and self.cache[url]['state'] == ST_COMPLETE:
@@ -50,7 +56,14 @@ class FileCache:
     else:
       return None
 
-  def preFetch(self, url):
+
+  def purgeExpired(self, group, currentItems):
+    logging.info('purging ' + group)
+    result = self._executeSql('DELETE FROM file_cache where state = %s and source_group = %s and not %s @> ARRAY[ url ]', [ST_EXPIRED, group, currentItems])
+    logging.debug('purge result: ' + str(result))
+    return result
+
+  def preFetch(self, url, group):
     logging.info('checking ' + url)
     if(url in self.cache):
       meta = self.cache[url]
@@ -65,17 +78,16 @@ class FileCache:
         return False
       fullpath = meta['path']
     else:
-      (pathDir,filename) = self._createCacheRecord(url)
+      (pathDir,filename) = self._createCacheRecord(url, group)
       if(not os.access(pathDir, os.W_OK)):
         os.makedirs(pathDir, 0755)
       fullpath = '{}/{}'.format(pathDir,filename)
       attempts = 0
-    # TODO check space - free up if needed
-    # os.statvfs gives us the data
     logging.info("fetching content-length")
     with requests.head(url, allow_redirects=True) as r:
       if(r.status_code == 200):
 	expectedSize = int(r.headers['content-length'])
+    self._makeRoomFor(expectedSize)
     logging.info("fetching content")
     self._executeSql('UPDATE file_cache set state = %s where url = %s',[ST_DOWNLOADING, url])
     size=0
@@ -123,11 +135,41 @@ class FileCache:
       'path': fullpath,
       'created': datetime.today()
     }
+    logging.info('Successfully preFetched {}'.format(url))
     return True
 
-  def _createCacheRecord(self, url):
+  def _getFreeSpace(self, newBytes):
+    # os.statvfs gives us the data
+    stat = os.statvfs(self.cacheRoot)
+    neededBlocks = (newBytes - 1)/stat.f_frsize + 1
+    avail = stat.f_bavail - neededBlocks
+    freePct = float(avail)/float(stat.f_blocks)*100
+    # du -s -B1 /data/musicserver/cache/
+    output = subprocess.check_output(['du', '-s', '--block-size', '1', self.cacheRoot])
+    usedBytes = int(output.split(None)[0])
+    logging.debug('bytes: {} -> blocks {}, current avail: {}, new avail {}, new freePct {}, used bytes {}'.
+	format(newBytes, neededBlocks, stat.f_bavail, avail, freePct, usedBytes))
+    return freePct, usedBytes + newBytes
+
+  def _makeRoomFor(self, newBytes):
+    (freePct, bytesUsed) = self._getFreeSpace(newBytes)
+    while (freePct < self.minFreePercent or bytesUsed > self.maxCachedBytes):
+      # remove next file
+      meta = self._getNextToPurge()
+      logging.debug('purging ' + str(meta))
+      self._deleteEntry(meta)
+      (freePct, bytesUsed) = self._getFreeSpace(newBytes)
+  
+  def _getNextToPurge(self):
+    # TODO only sort once (when do we need to re-sort?)
+    # TODO better sort
+    # for now, just go with oldest
+    byCreated = sorted(self.cache.values(), key = lambda meta: meta['created'])
+    return byCreated[0]
+
+  def _createCacheRecord(self, url, group):
     with psycopg2.connect(self.connParams) as conn, conn.cursor() as cursor:
-      cursor.execute('INSERT INTO file_cache(url) VALUES (%s) RETURNING id',[url])
+      cursor.execute('INSERT INTO file_cache(url, source_group) VALUES (%s, %s) RETURNING id',[url, group])
       conn.commit()
       id = cursor.fetchone()[0]
       idStr='{:08x}'.format(id)

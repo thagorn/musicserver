@@ -31,8 +31,11 @@ def main():
   count = 0
   for feed in pc.get_feeds():
     logging.info('Checking ' + feed[0])
-    for item in pc.get_feed(feed[1])['items']:
-      if(cache.preFetch(item['guid'])):
+    feedUrl = feed[1]
+    items = pc.get_feed(feedUrl)['items']
+    cache.purgeExpired(feedUrl, [item['guid'] for item in items])
+    for item in items:
+      if(cache.preFetch(item['guid'], feedUrl)):
         count = count + 1
         logging.debug('count now ' + str(count))
         if(count >= args.maxToFetch):

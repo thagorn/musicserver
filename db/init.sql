@@ -66,6 +66,7 @@ insert into cache_status (state, name)
     (1, 'downloading'),
     (2, 'complete'),
     (3, 'error')
+    (4, 'expired') -- removed from disk but (possibly) still in feed
 ;
 create table file_cache (
   id SERIAL,
@@ -77,6 +78,8 @@ create table file_cache (
   state int not null default 0,
   attempts int not null default 0,
   -- how many download attempts?
+  source_group text not null, -- e.g. rss feed, to aid w/expiration
+  present_at_source boolean not null default 't',
 
   -- add checks when state == 2 - path & size cannot be null
   primary key(id),
