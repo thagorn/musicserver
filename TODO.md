@@ -35,4 +35,5 @@
     by age done
   * expire by max age as well
   + update scheme to track what's available
+  ? when listing podcasts, use union of cache + current feeds
 - also see https://pypi.python.org/pypi/requests-cache
