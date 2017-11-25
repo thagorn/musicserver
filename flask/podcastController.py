@@ -3,12 +3,14 @@ from urllib2 import urlopen,unquote
 from urllib import urlretrieve
 from mediaplayerController import get_mediaplayer
 from baseController import BaseController
+from file_cache import FileCache
 from tempfile import mkstemp
 import xml.etree.ElementTree as ET
 import os
 import time
 import psycopg2
 import logging
+import subprocess
 
 class PodcastController(BaseController):
     def __init__(self):
@@ -16,7 +18,7 @@ class PodcastController(BaseController):
         self.paused = True
         self.elapsedTime = 0
         self.startTime = time.time()
-
+	self.cache = FileCache('dbname=pi user=pi', '/data/musicserver/cache')
 
     def get_feeds(self):
         feeds = []
@@ -54,7 +56,7 @@ class PodcastController(BaseController):
                 if durationHolder is not None:
                   duration = durationHolder.text
                 if duration is not None:
-                  print "duration: " + str(duration)
+                  logging.debug("duration: " + str(duration))
                   feedItem['duration'] = duration
                   parts = duration.split(':')
                   if(len(parts) >= 2):
@@ -64,7 +66,7 @@ class PodcastController(BaseController):
                   else:
                     feedItem['durationSecs'] = 99
                 else:
-                  print "could not find duration in: " + str(item)
+                  logging.warn("could not find duration in: " + str(item))
                   feedItem['duration'] = 99
                   feedItem['durationSecs'] = 99
                 #feedItem['guid'] = item.find('guid').text
@@ -79,10 +81,20 @@ class PodcastController(BaseController):
         logging.info("orig url: " + url)
         url=unquote(url)
         logging.info("decoded: " + url)
+        fd = None
         try:
-          (fd,tmpFile) = mkstemp()
-          logging.info("downloading to: " + tmpFile)
-          urlretrieve(url,tmpFile)
+          cached = self.cache.getUrl(url)
+	  if(cached):
+            tmpFile = cached['path']
+            logging.info("cached: " + tmpFile)
+	  else:
+            (fd,tmpFile) = mkstemp()
+            logging.info("downloading to: " + tmpFile)
+            #urlretrieve(url,tmpFile)
+            #subprocess.check_call(["curl","-L","-s",url],stdout=fd)
+            curlCmd="curl -L -s '" + url + "' >" + tmpFile
+            logging.info("via: " + curlCmd)
+            subprocess.check_call(["bash", "-c", curlCmd])
           tmpFileUrl = 'file://' + tmpFile
           mp.play(tmpFileUrl)
           self.paused = False
@@ -95,11 +107,11 @@ class PodcastController(BaseController):
           if(fd):
             os.close(fd)
             # give mediaplayer a chance to open it first
-            for tries in range(300):
-                time.sleep(.1)
-                if(self.processHasOpened(mp.getPid(), tmpFile)):
-                    break
-            os.remove(tmpFile)
+#            for tries in range(300):
+#                time.sleep(.1)
+#                if(self.processHasOpened(mp.getPid(), tmpFile)):
+#                    break
+#            os.remove(tmpFile)
 
     def swap(self, id1str, id2str):
         id1 = int(id1str)

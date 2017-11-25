@@ -1,4 +1,6 @@
 *.swp
 *.pyc
+FFmpeg
+pianobar
 flask/static/favicon
 flask/logs

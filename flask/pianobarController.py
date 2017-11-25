@@ -1,24 +1,25 @@
 from baseController import BaseController
 import subprocess
+import os
 import time
 
 class PianobarController(BaseController):
     def __init__(self):
         BaseController.__init__(self)
         self.check_status()
-        self.writer = open("/root/.config/pianobar/ctl", "a")
+        self.writer = open(os.environ["HOME"] + "/.config/pianobar/ctl", "a")
         self.latest = ""
 
     def check_status(self):
         try:
-            subprocess.check_call(['ps', '-C', 'pianobar'])
+            subprocess.check_call(['ps', '-C', '/usr/local/bin/pianobar'])
         except subprocess.CalledProcessError:
             #Pianobar is not running
             self.volume = 5
             self.paused = False
             self.elapsedTime = 0
             self.startTime = time.time()
-            subprocess.Popen(['pianobar'], close_fds=True)
+            subprocess.Popen(['/usr/local/bin/pianobar'], close_fds=True)
 
     def set_latest(self, action, data):
         if action == "songstart":
